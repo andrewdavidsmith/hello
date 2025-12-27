@@ -1,0 +1,34 @@
+name: Build & Attest
+on: [push, workflow_dispatch]
+
+permissions:
+  id-token: write
+  attestations: write
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      digest: ${{ steps.digest.outputs.digest }}
+    steps:
+      - uses: actions/checkout@v4
+      - run: gcc -o hello hello.c
+      - id: digest
+        run: |
+          DIGEST=$(sha256sum hello | cut -d' ' -f1)
+          echo "digest=$DIGEST" >> $GITHUB_OUTPUT
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hello
+          path: hello
+  attest:
+    needs: build
+    uses: andrewdavidsmith/slsa-attester/.github/workflows/attest-binary.yml@main
+    with:
+      artifact-name: hello
+      subject-name: hello
+  build-sbom:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: anchore/sbom-action@v0
